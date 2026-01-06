@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SST facil | GESTÃO DE VISITAS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;700;800&display=swap');
+        :root { --neon: #00ff88; --blue: #00d4ff; --red: #ff3e3e; --yellow: #f3ff00; --bg: #0a0a0c; --card: #141417; --border: #222; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: var(--bg); color: #fff; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        header { background: #000; padding: 15px; border-bottom: 1px solid var(--border); text-align: center; }
+        header h1 { font-family: 'Orbitron'; font-size: 1.1rem; color: var(--neon); letter-spacing: 2px; }
+        nav { background: #000; display: flex; border-bottom: 1px solid var(--border); }
+        .nav-link { padding: 15px; font-size: 0.65rem; font-weight: 800; color: #555; text-transform: uppercase; cursor: pointer; flex: 1; text-align: center; }
+        .nav-link.active { color: var(--neon); border-bottom: 3px solid var(--neon); }
+        main { flex: 1; overflow-y: auto; padding: 15px; }
+        .widget { background: var(--card); padding: 15px; border-radius: 15px; border: 1px solid var(--border); margin-bottom: 10px; }
+        .widget label { font-size: 0.6rem; color: #666; display: block; margin-bottom: 5px; text-transform: uppercase; }
+        .widget .val { font-family: 'Orbitron'; font-size: 1.2rem; }
+        select, input, textarea { width: 100%; background: #000; border: 1px solid #333; color: #fff; padding: 10px; border-radius: 10px; }
+        .date-group { display: flex; gap: 3px; }
+        .date-group input { width: 45px; text-align: center; padding: 5px; font-size: 0.8rem; }
+        table { width: 100%; margin-top: 10px; border-collapse: collapse; }
+        th { font-size: 0.6rem; color: #444; text-align: left; padding: 5px; }
+        td { padding: 8px 5px; font-size: 0.8rem; border-bottom: 1px solid #1a1a1a; }
+        .pill { padding: 3px 7px; border-radius: 5px; font-size: 0.6rem; font-weight: bold; }
+        .ok { background: rgba(0,255,136,0.1); color: var(--neon); }
+        .vencido { background: rgba(255,62,62,0.1); color: var(--red); }
+        .btn-titan { background: var(--neon); color: #000; border: none; padding: 15px; border-radius: 12px; font-weight: 900; width: 100%; cursor: pointer; margin-top: 10px; }
+        .view-section { display: none; } .view-section.active { display: block; }
+        .preview-img { width: 100%; border-radius: 10px; margin-top: 10px; border: 1px solid var(--neon); }
+    </style>
+</head>
+<body>
+
+<header><h1>TITAN_ULTRA_V23</h1></header>
+
+<nav>
+    <div class="nav-link active" onclick="openTab('dash')">📊 Painel</div>
+    <div class="nav-link" onclick="openTab('docs')">📜 Laudos</div>
+    <div class="nav-link" onclick="openTab('visit')">🚜 Visitas</div>
+    <div class="nav-link" onclick="openTab('cfg')">⚙️ Gestão</div>
+</nav>
+
+<main>
+    <select id="cliSel" onchange="run()" style="border: 2px solid var(--neon); color: var(--neon); font-weight: bold; margin-bottom: 15px;">
+        <option value="">-- SELECIONAR CLIENTE --</option>
+    </select>
+
+    <div id="tab-dash" class="view-section active">
+        <div class="widget">
+            <label>Plano de Assessoria</label>
+            <span class="val" id="d-tipo" style="color: var(--blue);">--</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div class="widget"><label>Conformidade</label><span class="val" id="d-comp">0%</span></div>
+            <div class="widget"><label>Visitas Realizadas</label><span class="val" id="d-v-count" style="color: var(--yellow);">0</span></div>
+        </div>
+        <div class="widget">
+            <label>Frequência Contratada</label>
+            <span class="val" id="d-freq" style="font-size: 0.9rem; color: #aaa;">--</span>
+        </div>
+        <div class="widget" id="alerta-box" style="border-color: var(--red); display:none;">
+            <label style="color: var(--red);">Pendências</label>
+            <div id="lista-alertas" style="font-size: 0.8rem; margin-top:5px;"></div>
+        </div>
+    </div>
+
+    <div id="tab-docs" class="view-section">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>LAUDOS E NRS</h3>
+            <button onclick="addItem('docs')" style="color:var(--neon); background:none; border:none; font-size:1.5rem;">+</button>
+        </div>
+        <table>
+            <thead><tr><th>NOME</th><th>DATA BASE</th><th>STATUS</th></tr></thead>
+            <tbody id="t-docs"></tbody>
+        </table>
+        <button class="btn-titan" onclick="gerarPDF()" style="background:#fff; margin-top:20px;">GERAR RELATÓRIO PDF</button>
+    </div>
+
+    <div id="tab-visit" class="view-section">
+        <h3>LANÇAR VISITA</h3>
+        <div class="date-group" style="margin: 10px 0;">
+            <input type="number" id="v-d" placeholder="DD">
+            <input type="number" id="v-m" placeholder="MM">
+            <input type="number" id="v-y" style="width:65px" placeholder="AAAA">
+        </div>
+        <textarea id="v-txt" placeholder="Descreva a atividade técnica..." style="height: 80px;"></textarea>
+        <input type="file" id="v-cam" accept="image/*" capture="environment" style="display:none" onchange="previewFoto(this)">
+        <button onclick="document.getElementById('v-cam').click()" style="background:var(--blue); color:#000; padding:10px; border-radius:10px; border:none; width:100%; margin:10px 0; font-weight:bold;">📸 FOTO DA VISITA</button>
+        <div id="v-prev"></div>
+        <button class="btn-titan" onclick="addVisit()">SALVAR ATIVIDADE</button>
+        <div id="v-list" style="margin-top:20px;"></div>
+    </div>
+
+    <div id="tab-cfg" class="view-section">
+        <h3>NOVO CLIENTE</h3>
+        <input type="text" id="c-nome" placeholder="Nome da Empresa" style="margin-top:10px;">
+        <label style="font-size: 0.6rem; color: #666; margin-top: 10px; display: block;">TIPO DE ASSESSORIA:</label>
+        <select id="c-assessoria" style="margin-bottom:15px;">
+            <option value="Basica">BÁSICA (1 visita a cada 2 meses)</option>
+            <option value="Media">MÉDIA (1 visita por mês)</option>
+            <option value="Master">MASTER (2 visitas por mês)</option>
+        </select>
+        <button class="btn-titan" onclick="addCli()">CADASTRAR UNIDADE</button>
+        <div id="cli-list" style="margin-top:20px;"></div>
+        <button class="btn-titan" style="background:var(--blue)" onclick="backup()">BACKUP DOS DADOS</button>
+    </div>
+</main>
+
+<script>
+let db = JSON.parse(localStorage.getItem('TITAN_SST_V23_FINAL')) || {};
+let cur = ''; let tempImg = ''; let editId = null;
+
+const freqs = {
+    'Basica': '1 Visita a cada 2 meses',
+    'Media': '1 Visita por mês',
+    'Master': '2 Visitas por mês'
+};
+
+function openTab(t) {
+    document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.getElementById('tab-'+t).classList.add('active');
+    event.currentTarget.classList.add('active');
+    if(t === 'cfg') renderCfg();
+}
+
+function run() { cur = document.getElementById('cliSel').value; if(cur) render(); }
+
+function render() {
+    const cli = db[cur]; if(!cli) return;
+    document.getElementById('d-tipo').innerText = cli.assessoria;
+    document.getElementById('d-freq').innerText = freqs[cli.assessoria] || '--';
+    document.getElementById('d-v-count').innerText = cli.visitas.length;
+    
+    let total = 0, okCount = 0;
+    const tDocs = document.getElementById('t-docs'); tDocs.innerHTML = '';
+    const lAlertas = document.getElementById('lista-alertas'); lAlertas.innerHTML = '';
+
+    cli.docs.forEach((it, i) => {
+        let v = calcVenc(it);
+        let status = !v ? {t:'PENDENTE', c:'vencido'} : (v < new Date() ? {t:'VENCIDO', c:'vencido'} : {t:'OK', c:'ok'});
+        total++; if(status.t === 'OK') okCount++;
+        let isE = editId === `docs-${i}`;
+
+        tDocs.innerHTML += `<tr>
+            <td><input value="${it.n}" ${isE?'':'disabled'} onchange="upd('docs',${i},'n',this.value)" style="border:none; background:transparent; font-weight:bold; color:#fff; width: 80px;"></td>
+            <td><div class="date-group">
+                <input type="number" value="${it.d}" ${isE?'':'disabled'} oninput="upd('docs',${i},'d',this.value)">
+                <input type="number" value="${it.m}" ${isE?'':'disabled'} oninput="upd('docs',${i},'m',this.value)">
+                <input type="number" value="${it.y}" ${isE?'':'disabled'} oninput="upd('docs',${i},'y',this.value)" style="width:55px">
+            </div></td>
+            <td><span class="pill ${status.c}">${v?v.toLocaleDateString('pt-BR'):status.t}</span><br>
+                <button onclick="toggleE('docs',${i})" style="border:none; background:none; color:var(--blue); font-size:0.6rem; padding-top:5px;">${isE?'[SALVAR]':'[EDITAR]'}</button>
+            </td>
+        </tr>`;
+        if(status.t !== 'OK') lAlertas.innerHTML += `<div>• ${it.n} (${status.t})</div>`;
+    });
+
+    document.getElementById('alerta-box').style.display = lAlertas.innerHTML ? 'block' : 'none';
+    document.getElementById('d-comp').innerText = total ? Math.round((okCount/total)*100)+'%' : '0%';
+
+    const vL = document.getElementById('v-list'); vL.innerHTML = '';
+    cli.visitas.forEach(v => {
+        vL.innerHTML += `<div class="widget"><small>${v.d}/${v.m}/${v.y}</small><p style="margin:5px 0;">${v.t}</p>${v.img?`<img src="${v.img}" class="preview-img">`:''}</div>`;
+    });
+}
+
+function toggleE(k, i) { let id = `${k}-${i}`; editId = (editId === id) ? null : id; save(); render(); }
+function upd(k, i, f, v) { db[cur][k][i][f] = v; save(); }
+function save() { localStorage.setItem('TITAN_SST_V23_FINAL', JSON.stringify(db)); }
+function calcVenc(it) { if(!it.d || !it.m || !it.y || it.y < 2000) return null; let dt = new Date(it.y, it.m-1, it.d); dt.setFullYear(dt.getFullYear() + 1); return dt; }
+
+function addCli() {
+    let n = document.getElementById('c-nome').value;
+    let a = document.getElementById('c-assessoria').value;
+    if(!n) return alert("Digite o nome da empresa");
+    db[n] = { assessoria: a, docs: [{n:'PGR',d:'',m:'',y:''},{n:'PCMSO',d:'',m:'',y:''}], visitas: [] };
+    save(); location.reload();
+}
+
+function renderCfg() {
+    const l = document.getElementById('cli-list'); l.innerHTML = '';
+    Object.keys(db).forEach(n => {
+        l.innerHTML += `<div class="widget" style="display:flex; justify-content:space-between; align-items:center;">
+            <span><b>${n}</b><br><small>${freqs[db[n].assessoria]}</small></span>
+            <button onclick="delCli('${n}')" style="color:var(--red); border:none; background:none; font-weight:bold;">EXCLUIR</button>
+        </div>`;
+    });
+}
+function delCli(n) { if(confirm('Apagar unidade?')) { delete db[n]; save(); location.reload(); } }
+
+function previewFoto(input) {
+    const reader = new FileReader();
+    reader.onload = e => { tempImg = e.target.result; document.getElementById('v-prev').innerHTML = `<img src="${tempImg}" class="preview-img">`; };
+    reader.readAsDataURL(input.files[0]);
+}
+
+function addVisit() {
+    const d = document.getElementById('v-d').value, m = document.getElementById('v-m').value, y = document.getElementById('v-y').value, t = document.getElementById('v-txt').value;
+    if(!d || !t) return alert('Preencha data e relato');
+    db[cur].visitas.unshift({d, m, y, t, img: tempImg});
+    tempImg = ''; document.getElementById('v-prev').innerHTML = ''; save(); render();
+}
+
+function backup() {
+    const a = document.createElement('a');
+    a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(db));
+    a.download = "TITAN_SST_BACKUP.json"; a.click();
+}
+
+function gerarPDF() {
+    const { jsPDF } = window.jspdf; const doc = new jsPDF(); const cli = db[cur];
+    doc.setTextColor(0, 255, 136); doc.setFontSize(18); doc.text(`RELATÓRIO TÉCNICO - ${cur}`, 14, 20);
+    doc.setTextColor(100); doc.setFontSize(10); doc.text(`Plano: ${cli.assessoria} (${freqs[cli.assessoria]})`, 14, 28);
+    let data = cli.docs.map(it => [it.n, `${it.d}/${it.m}/${it.y}`, calcVenc(it)?calcVenc(it).toLocaleDateString():'Pendente']);
+    doc.autoTable({ head: [['Item', 'Data Base', 'Vencimento']], body: data, startY: 35, theme: 'grid' });
+    doc.text(`Total de Visitas Realizadas: ${cli.visitas.length}`, 14, doc.lastAutoTable.finalY + 10);
+    doc.save(`Relatorio_${cur}.pdf`);
+}
+
+Object.keys(db).sort().forEach(n => { let o = document.createElement('option'); o.value = n; o.innerText = n; document.getElementById('cliSel').appendChild(o); });
+</script>
+</body>
+</html>
